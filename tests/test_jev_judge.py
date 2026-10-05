@@ -98,6 +98,23 @@ def test_pytest_fixture(jev_judge):
     assert res.passed is True
 
 
+def test_pytest_fixture_env_handling(monkeypatch):
+    from jev_judge.fixtures import get_default_judge
+    # Without key, fixture defaults to mock
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("JEV_MOCK", raising=False)
+    j = get_default_judge()
+    assert j.client.is_mock is True
+
+    # With JEV_MOCK=1, fixture forces mock
+    monkeypatch.setenv("JEV_MOCK", "1")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "real-key")
+    j2 = get_default_judge()
+    assert j2.client.is_mock is True
+
+
+
+
 import asyncio
 import json
 import xml.etree.ElementTree as ET

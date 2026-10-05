@@ -175,9 +175,9 @@ class JevClient:
             if context_text:
                 if "invented" in output_text or "hallucinat" in output_text:
                     is_hallucinated = True
-                elif "free" in output_text and "free" not in (context_text + " " + input_text):
+                elif "free" in output_text and "free" not in context_text and not any(neg in output_text for neg in ["not free", "no free", "isn't free", "is not free"]):
                     is_hallucinated = True
-                elif "$5" in output_text and "$5" not in (context_text + " " + input_text):
+                elif "$5" in output_text and "$5" not in context_text:
                     is_hallucinated = True
                 else:
                     # Context-aware token/numeric verification:
