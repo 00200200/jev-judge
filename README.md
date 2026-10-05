@@ -7,7 +7,7 @@ Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System O
 
 [![PyPI version](https://img.shields.io/badge/pypi-v0.1.0-blue.svg)](https://pypi.org/project/jev-judge/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-brightgreen.svg)](https://www.python.org/)
 [![Model: TypeSafe Jev](https://img.shields.io/badge/Model-TypeSafe%20Jev-cyan.svg)](https://typesafe.ai)
 [![CI](https://github.com/00200200/jev-judge/actions/workflows/ci.yml/badge.svg)](https://github.com/00200200/jev-judge/actions/workflows/ci.yml)
 

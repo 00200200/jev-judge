@@ -7,7 +7,7 @@ name = "jev-judge"
 version = "0.1.0"
 description = "Vitest for LLM outputs. Sub-100ms, deterministic CI/CD evaluations powered by TypeSafe Jev."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "jev-judge contributors" }
