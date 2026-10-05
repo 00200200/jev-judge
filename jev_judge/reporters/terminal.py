@@ -1,10 +1,10 @@
 """Rich terminal reporter with Vitest/Jest style output."""
 
-import os
 from typing import List
+
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from jev_judge.models import TestSuiteResult
@@ -45,15 +45,21 @@ def print_suite_results(console: Console, suite_results: List[TestSuiteResult]):
     console.print()
     for suite in suite_results:
         # File header
-        badge = "[bold white on green] PASS [/]" if suite.is_success else "[bold white on red] FAIL [/]"
+        badge = (
+            "[bold white on green] PASS [/]" if suite.is_success else "[bold white on red] FAIL [/]"
+        )
         rel_path = suite.file_path or suite.suite_name
-        console.print(f"{badge} [bold]{rel_path}[/] [dim]({suite.total_tests} tests in {suite.duration_ms:.0f}ms)[/]")
+        console.print(
+            f"{badge} [bold]{rel_path}[/] [dim]({suite.total_tests} tests in {suite.duration_ms:.0f}ms)[/]"
+        )
 
         # Tests details
         for tr in suite.results:
             tc = tr.test_case
             status_symbol = "[bold green]✓[/]" if tr.passed else "[bold red]✕[/]"
-            console.print(f"  {status_symbol} [white]{tc.name}[/] [dim]({tr.duration_ms:.0f}ms, ${tr.total_cost_usd:.5f})[/]")
+            console.print(
+                f"  {status_symbol} [white]{tc.name}[/] [dim]({tr.duration_ms:.0f}ms, ${tr.total_cost_usd:.5f})[/]"
+            )
 
             # If failed or user wants details, show assertions
             if not tr.passed:
@@ -88,7 +94,10 @@ def print_suite_results(console: Console, suite_results: List[TestSuiteResult]):
     table.add_row("Tests", f"{' | '.join(test_status)} ({total_tests})")
 
     # Timing
-    table.add_row("Duration", f"[bold cyan]{total_duration_ms / 1000.0:.2f}s[/] [dim]({total_duration_ms:.0f}ms total)[/]")
+    table.add_row(
+        "Duration",
+        f"[bold cyan]{total_duration_ms / 1000.0:.2f}s[/] [dim]({total_duration_ms:.0f}ms total)[/]",
+    )
 
     # Cost comparison
     cost_str = (
@@ -98,4 +107,6 @@ def print_suite_results(console: Console, suite_results: List[TestSuiteResult]):
     )
     table.add_row("Estimated Cost", cost_str)
 
-    console.print(Panel(table, border_style="dim", title="[bold]Execution Summary[/]", title_align="left"))
+    console.print(
+        Panel(table, border_style="dim", title="[bold]Execution Summary[/]", title_align="left")
+    )

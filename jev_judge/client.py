@@ -1,13 +1,13 @@
 """TypeSafe Jev API client with real HTTP integration and zero-config mock mode."""
 
+import logging
 import os
 import time
-import json
-import logging
 from typing import Any, Dict, List, Optional
+
 import httpx
 
-from jev_judge.models import DecisionResult, DecisionType, AssertionDef
+from jev_judge.models import AssertionDef, DecisionResult, DecisionType
 
 logger = logging.getLogger("jev_judge")
 
@@ -75,7 +75,9 @@ class JevClient:
 
                 if resp.status_code != 200:
                     logger.warning(f"Jev API returned status {resp.status_code}: {resp.text}")
-                    return self._fallback_error(assertions, f"HTTP {resp.status_code}: {resp.text}", elapsed_ms)
+                    return self._fallback_error(
+                        assertions, f"HTTP {resp.status_code}: {resp.text}", elapsed_ms
+                    )
 
                 data = resp.json()
                 choices = data.get("choices", {})
@@ -87,6 +89,7 @@ class JevClient:
                     prob = float(choice_info.get("probability", 0.95))
 
                     from jev_judge.evaluators import evaluate_decision_verdict
+
                     passed, reason = evaluate_decision_verdict(a, val, prob)
 
                     results.append(
@@ -118,8 +121,8 @@ class JevClient:
     ) -> List[DecisionResult]:
         """Realistic local deterministic evaluator for zero-friction testing."""
         output_text = str(state.get("output", "")).lower()
-        context_text = str(state.get("context", "")).lower()
-        input_text = str(state.get("input", "")).lower()
+        str(state.get("context", "")).lower()
+        str(state.get("input", "")).lower()
 
         results = []
         for a in assertions:
@@ -201,7 +204,9 @@ class JevClient:
 
         return results
 
-    def _fallback_error(self, assertions: List[AssertionDef], error_msg: str, latency_ms: float) -> List[DecisionResult]:
+    def _fallback_error(
+        self, assertions: List[AssertionDef], error_msg: str, latency_ms: float
+    ) -> List[DecisionResult]:
         return [
             DecisionResult(
                 assertion_name=a.name,

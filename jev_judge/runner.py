@@ -1,15 +1,16 @@
 """Asynchronous test suite runner with parallel execution."""
 
 import asyncio
-import os
 import glob
+import os
 import time
 from typing import List, Optional
+
 import yaml
 
 from jev_judge.client import JevClient
 from jev_judge.evaluators import get_evaluator_spec
-from jev_judge.models import TestCase, TestCaseResult, TestSuite, TestSuiteResult, DecisionResult
+from jev_judge.models import DecisionResult, TestCase, TestCaseResult, TestSuite, TestSuiteResult
 
 
 class TestRunner:
@@ -40,7 +41,9 @@ class TestRunner:
                 "output": tc.output,
             }
 
-            decisions_list: List[DecisionResult] = await self.client.decide_batch(state, assertion_defs)
+            decisions_list: List[DecisionResult] = await self.client.decide_batch(
+                state, assertion_defs
+            )
             duration_ms = (time.perf_counter() - start) * 1000.0
 
             decisions_dict = {d.assertion_name: d for d in decisions_list}

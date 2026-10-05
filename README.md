@@ -9,7 +9,7 @@ Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System O
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model: TypeSafe Jev](https://img.shields.io/badge/Model-TypeSafe%20Jev-cyan.svg)](https://typesafe.ai)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-orange.svg)](.github/workflows/evals.yml)
+[![CI](https://github.com/00200200/jev-judge/actions/workflows/ci.yml/badge.svg)](https://github.com/00200200/jev-judge/actions/workflows/ci.yml)
 
 <br/>
 
@@ -172,7 +172,7 @@ result = judge.evaluate(
         "relevance": 5,
         "hallucination": False,
         "tone_check": "The answer is empathetic and helpful",
-    }
+    },
 )
 
 print(f"Passed: {result.passed} in {result.duration_ms}ms")

@@ -1,6 +1,7 @@
 """Markdown reporter for GitHub Actions and pull request summaries."""
 
 from typing import List
+
 from jev_judge.models import TestSuiteResult
 
 
@@ -50,5 +51,7 @@ def generate_markdown_report(suite_results: List[TestSuiteResult]) -> str:
             )
 
     lines.append("")
-    lines.append("> *Powered by [TypeSafe Jev](https://typesafe.ai) via [jev-judge](https://github.com/your-org/jev-judge)*")
+    lines.append(
+        "> *Powered by [TypeSafe Jev](https://typesafe.ai) via [jev-judge](https://github.com/your-org/jev-judge)*"
+    )
     return "\n".join(lines)

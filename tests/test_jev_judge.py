@@ -1,10 +1,8 @@
 """Unit tests for jev-judge core logic and CLI."""
 
-import pytest
-from jev_judge import Judge, TestCase
-from jev_judge.evaluators import get_evaluator_spec, evaluate_decision_verdict
-from jev_judge.models import DecisionType, AssertionType
-from jev_judge.runner import TestRunner
+from jev_judge import Judge
+from jev_judge.evaluators import evaluate_decision_verdict, get_evaluator_spec
+from jev_judge.models import AssertionType, DecisionType
 
 
 def test_evaluator_spec_mapping():

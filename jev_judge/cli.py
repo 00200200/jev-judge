@@ -1,18 +1,19 @@
 """Command Line Interface for Jev-Judge."""
 
+import asyncio
 import os
 import sys
-import asyncio
 from typing import Optional
+
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from jev_judge.client import JevClient
-from jev_judge.runner import TestRunner
-from jev_judge.reporters.terminal import print_banner, print_suite_results
 from jev_judge.reporters.markdown import generate_markdown_report
+from jev_judge.reporters.terminal import print_banner, print_suite_results
+from jev_judge.runner import TestRunner
 
 console = Console()
 
@@ -28,7 +29,9 @@ def cli(ctx: click.Context):
 @cli.command("test")
 @click.argument("path", default="evals", type=str)
 @click.option("--mock", is_flag=True, help="Force mock/offline evaluation mode.")
-@click.option("--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0).")
+@click.option(
+    "--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0)."
+)
 @click.option("--concurrency", default=10, type=int, help="Max concurrent evaluation batches.")
 @click.option("--markdown", is_flag=True, help="Output Markdown report to stdout.")
 @click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
@@ -42,7 +45,9 @@ def test_cmd(
 ):
     """Run evaluation test suites across YAML/JSON files."""
     if not os.path.exists(path):
-        console.print(f"[bold red]Error:[/] Target path '[bold]{path}[/]' does not exist.", file=sys.stderr)
+        console.print(
+            f"[bold red]Error:[/] Target path '[bold]{path}[/]' does not exist.", file=sys.stderr
+        )
         console.print("[dim]Tip: Run '[cyan]jev-judge init[/]' to generate sample test files.[/]")
         sys.exit(1)
 
@@ -183,21 +188,25 @@ jobs:
     with open(wf_path, "w", encoding="utf-8") as f:
         f.write(ci_workflow)
 
-    console.print(Panel(
-        f"[bold green]✓ Initialized test suite in [cyan]{dir}/[/][/]\n"
-        f"  • Created [white]{rag_path}[/]\n"
-        f"  • Created [white]{agent_path}[/]\n"
-        f"  • Created [white]{wf_path}[/]\n\n"
-        f"[dim]Run tests now:[/] [bold cyan]jev-judge test {dir}/[/]",
-        title="[bold]Project Initialized[/]",
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            f"[bold green]✓ Initialized test suite in [cyan]{dir}/[/][/]\n"
+            f"  • Created [white]{rag_path}[/]\n"
+            f"  • Created [white]{agent_path}[/]\n"
+            f"  • Created [white]{wf_path}[/]\n\n"
+            f"[dim]Run tests now:[/] [bold cyan]jev-judge test {dir}/[/]",
+            title="[bold]Project Initialized[/]",
+            border_style="green",
+        )
+    )
 
 
 @cli.command("benchmark")
 def benchmark_cmd():
     """Display real-world benchmark metrics comparing Jev to LLM judges."""
-    table = Table(title="⚡ LLM-as-a-Judge Benchmark: Speed, Cost & Determinism", border_style="cyan")
+    table = Table(
+        title="⚡ LLM-as-a-Judge Benchmark: Speed, Cost & Determinism", border_style="cyan"
+    )
     table.add_column("Evaluator / Model", style="bold white")
     table.add_column("Decision Type", style="cyan")
     table.add_column("Latency (p50)", justify="right")
@@ -205,11 +214,46 @@ def benchmark_cmd():
     table.add_column("Determinism", style="magenta")
     table.add_column("CI/CD Viability", style="bold")
 
-    table.add_row("TypeSafe Jev (System One)", "Native Typed (Noul/Score)", "48 ms", "$0.04", "Calibrated (100%)", "[green]Instant on PR[/]")
-    table.add_row("GPT-4o", "Generative Text + JSON", "1,850 ms", "$25.00", "Prompt-dependent", "[red]Too slow & costly[/]")
-    table.add_row("GPT-4o-mini", "Generative Text + JSON", "820 ms", "$1.50", "Prompt-dependent", "[yellow]Acceptable, drifts[/]")
-    table.add_row("Claude 3.5 Sonnet", "Generative Text + JSON", "1,420 ms", "$18.00", "Prompt-dependent", "[red]Cost-prohibitive[/]")
-    table.add_row("Cohere Rerank 3", "Cross-Encoder Score", "380 ms", "$2.00", "Score only", "[yellow]Good for search only[/]")
+    table.add_row(
+        "TypeSafe Jev (System One)",
+        "Native Typed (Noul/Score)",
+        "48 ms",
+        "$0.04",
+        "Calibrated (100%)",
+        "[green]Instant on PR[/]",
+    )
+    table.add_row(
+        "GPT-4o",
+        "Generative Text + JSON",
+        "1,850 ms",
+        "$25.00",
+        "Prompt-dependent",
+        "[red]Too slow & costly[/]",
+    )
+    table.add_row(
+        "GPT-4o-mini",
+        "Generative Text + JSON",
+        "820 ms",
+        "$1.50",
+        "Prompt-dependent",
+        "[yellow]Acceptable, drifts[/]",
+    )
+    table.add_row(
+        "Claude 3.5 Sonnet",
+        "Generative Text + JSON",
+        "1,420 ms",
+        "$18.00",
+        "Prompt-dependent",
+        "[red]Cost-prohibitive[/]",
+    )
+    table.add_row(
+        "Cohere Rerank 3",
+        "Cross-Encoder Score",
+        "380 ms",
+        "$2.00",
+        "Score only",
+        "[yellow]Good for search only[/]",
+    )
 
     console.print()
     console.print(table)

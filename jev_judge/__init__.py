@@ -4,7 +4,7 @@ import asyncio
 from typing import Any, Dict, List, Optional, Union
 
 from jev_judge.client import JevClient
-from jev_judge.models import TestCase, TestCaseResult, TestSuite, TestSuiteResult, DecisionResult
+from jev_judge.models import DecisionResult, TestCase, TestCaseResult, TestSuite, TestSuiteResult
 from jev_judge.runner import TestRunner
 
 __version__ = "0.1.0"
@@ -13,7 +13,12 @@ __version__ = "0.1.0"
 class Judge:
     """Programmatic interface for evaluating model outputs with TypeSafe Jev."""
 
-    def __init__(self, api_key: Optional[str] = None, force_mock: bool = False, default_threshold: float = 0.75):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        force_mock: bool = False,
+        default_threshold: float = 0.75,
+    ):
         self.client = JevClient(api_key=api_key, force_mock=force_mock)
         self.runner = TestRunner(client=self.client, default_threshold=default_threshold)
 

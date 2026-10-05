@@ -15,7 +15,7 @@ result = judge.evaluate(
         "faithfulness": "pass",
         "relevance": 5,
         "hallucination": False,
-    }
+    },
 )
 
 print(f"Overall Passed: {result.passed}")
