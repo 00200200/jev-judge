@@ -1,0 +1,29 @@
+# RAG Faithfulness, Relevance and Hallucination Test Suite
+name: "Customer Support RAG Suite"
+threshold: 0.80
+
+tests:
+  - name: "Grounded Answer: Return Policy"
+    context: "Items can be returned within 30 days of receipt if they are in original packaging and condition."
+    input: "Can I return a sweater after 20 days?"
+    output: "Yes, you can return items within 30 days as long as they remain in their original condition and packaging."
+    assertions:
+      faithfulness: pass
+      relevance: 5
+      hallucination: false
+
+  - name: "Detected Hallucination: Free Shipping"
+    context: "Standard shipping is $4.99 on all domestic orders."
+    input: "Is shipping free if I spend over $50?"
+    output: "Yes! All orders over $50 include free standard shipping across the country."
+    assertions:
+      faithfulness: pass     # Will fail because free shipping is hallucinated
+      hallucination: false
+
+  - name: "Technical Spec Query"
+    context: "PostgreSQL 16 introduces enhanced query parallelism and improved vacuum performance."
+    input: "What major improvements were added in PostgreSQL 16?"
+    output: "PostgreSQL 16 focuses on better query parallelism and faster vacuum performance."
+    assertions:
+      faithfulness: 0.85
+      relevance: 5

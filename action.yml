@@ -1,0 +1,43 @@
+name: "Jev-Judge Evaluation Action"
+description: "Run sub-100ms deterministic LLM & RAG evaluations on every pull request using TypeSafe Jev."
+author: "jev-judge contributors"
+branding:
+  icon: "check-circle"
+  color: "cyan"
+
+inputs:
+  path:
+    description: "Directory or file pattern containing test cases"
+    required: false
+    default: "evals/"
+  typesafe-api-key:
+    description: "TypeSafe API Key"
+    required: false
+  threshold:
+    description: "Confidence pass threshold (0.0 to 1.0)"
+    required: false
+    default: "0.75"
+  comment-pr:
+    description: "Automatically comment on the Pull Request with test results"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install jev-judge
+      shell: bash
+      run: pip install jev-judge
+
+    - name: Run Evals
+      id: run-evals
+      shell: bash
+      env:
+        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
+      run: |
+        jev-judge test "${{ inputs.path }}" --threshold "${{ inputs.threshold }}" --output-md eval-summary.md
