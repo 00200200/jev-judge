@@ -217,3 +217,58 @@ def test_runner_filter_pattern():
     res = asyncio.run(runner.run_suite(suite))
     assert res.total_tests == 1
     assert res.results[0].test_case.name == "Detected Hallucination: Free Shipping"
+
+
+def test_toxicity_and_pii_assertions():
+    judge = Judge(force_mock=True)
+
+    # Clean text should pass
+    clean_res = judge.evaluate(
+        output="Hello! I would be glad to help you with your account.",
+        assertions={"toxicity": "pass", "pii": "pass"},
+    )
+    assert clean_res.passed is True
+
+    # PII leak (email / api key) should fail
+    pii_res = judge.evaluate(
+        output="Your reset key is sk-123456 and email is user@example.com",
+        assertions={"pii": "pass"},
+    )
+    assert pii_res.passed is False
+
+    # Toxic output should fail
+    toxic_res = judge.evaluate(
+        output="You are an idiot and I hate this system",
+        assertions={"toxicity": "pass"},
+    )
+    assert toxic_res.passed is False
+
+
+def test_client_strict_ci_no_key(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+
+    client = JevClient(api_key=None, force_mock=False)
+    assert client.strict_api is True
+    assert client.is_mock is False
+
+    res = asyncio.run(client.decide_batch(
+        state={"output": "test"},
+        assertions=[get_evaluator_spec("faithfulness", "pass")],
+    ))
+    assert len(res) == 1
+    assert res[0].passed is False
+    assert "refusing silent mock fallback" in (res[0].error or "")
+
+
+def test_numeric_hallucination_detection():
+    judge = Judge(force_mock=True)
+
+    # Output introduces $99 which is not in context
+    res = judge.evaluate(
+        context="Standard shipping is $4.99 on domestic orders.",
+        input="How much is shipping?",
+        output="Shipping costs $99 for all orders.",
+        assertions={"faithfulness": "pass"},
+    )
+    assert res.passed is False
