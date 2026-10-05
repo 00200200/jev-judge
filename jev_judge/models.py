@@ -10,6 +10,8 @@ class AssertionType(str, Enum):
     HALLUCINATION = "hallucination"
     RELEVANCE = "relevance"
     SAFETY = "safety"
+    TOXICITY = "toxicity"
+    PII = "pii"
     SEMANTIC_DRIFT = "semantic_drift"
     CUSTOM = "custom"
 

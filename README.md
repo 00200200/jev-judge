@@ -94,6 +94,8 @@ Tested across 1,000 paired evaluation items (RAG faithfulness & hallucination de
   * `hallucination` detection
   * `relevance` scoring
   * `safety` / prompt injection guardrails
+  * `toxicity` detection
+  * `pii` / credential & secret leak detection
   * `semantic_drift` detection
   * Any natural language custom assertion!
 
