@@ -2,8 +2,10 @@
 
 import os
 import sys
+import time
+import json
 import asyncio
-from typing import Optional
+from typing import Optional, List
 import click
 from rich.console import Console
 from rich.table import Table
@@ -25,57 +27,64 @@ def cli(ctx: click.Context):
         click.echo(ctx.get_help())
 
 
-@cli.command("test")
-@click.argument("path", default="evals", type=str)
-@click.option("--mock", is_flag=True, help="Force mock/offline evaluation mode.")
-@click.option("--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0).")
-@click.option("--concurrency", default=10, type=int, help="Max concurrent evaluation batches.")
-@click.option("--markdown", is_flag=True, help="Output Markdown report to stdout.")
-@click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
-def test_cmd(
+def _execute_run(
     path: str,
     mock: bool,
     threshold: float,
     concurrency: int,
+    fail_fast: bool,
+    is_json: bool,
     markdown: bool,
     output_md: Optional[str],
-):
-    """Run evaluation test suites across YAML/JSON files."""
-    if not os.path.exists(path):
-        console.print(f"[bold red]Error:[/] Target path '[bold]{path}[/]' does not exist.", file=sys.stderr)
-        console.print("[dim]Tip: Run '[cyan]jev-judge init[/]' to generate sample test files.[/]")
-        sys.exit(1)
-
+    output_json: Optional[str],
+) -> bool:
     client = JevClient(force_mock=mock)
-    if not markdown:
+    if not is_json and not markdown:
         print_banner(console, client.is_mock)
 
-    runner = TestRunner(client=client, concurrency=concurrency, default_threshold=threshold)
+    runner = TestRunner(
+        client=client,
+        concurrency=concurrency,
+        default_threshold=threshold,
+        fail_fast=fail_fast,
+    )
 
     try:
         suite_results = asyncio.run(runner.run_path(path))
     except Exception as e:
         console.print(f"[bold red]Execution error:[/] {e}", file=sys.stderr)
-        sys.exit(1)
+        return False
 
     if not suite_results:
-        console.print(f"[yellow]No test files (.yaml, .yml, .json) found in '{path}'.[/]")
-        sys.exit(0)
+        if not is_json and not markdown:
+            console.print(f"[yellow]No test files (.yaml, .yml, .json, .jsonl, .csv) found in '{path}'.[/]")
+        return True
 
     # Terminal output
-    if not markdown:
+    if not is_json and not markdown:
         print_suite_results(console, suite_results)
+
+    # JSON export
+    if is_json or output_json:
+        json_data = [s.model_dump() for s in suite_results]
+        json_str = json.dumps(json_data, indent=2)
+        if is_json:
+            click.echo(json_str)
+        if output_json:
+            with open(output_json, "w", encoding="utf-8") as f:
+                f.write(json_str)
+            if not is_json and not markdown:
+                console.print(f"[dim]Saved JSON report to [bold]{output_json}[/][/]")
 
     # Markdown export (for CI / PR comment)
     md_content = generate_markdown_report(suite_results)
-
     if markdown:
         click.echo(md_content)
 
     if output_md:
         with open(output_md, "w", encoding="utf-8") as f:
             f.write(md_content)
-        if not markdown:
+        if not is_json and not markdown:
             console.print(f"[dim]Saved Markdown report to [bold]{output_md}[/][/]")
 
     # Support GitHub Actions environment automatically
@@ -87,9 +96,106 @@ def test_cmd(
         except Exception:
             pass
 
-    # Exit code
-    all_passed = all(s.is_success for s in suite_results)
-    sys.exit(0 if all_passed else 1)
+    return all(s.is_success for s in suite_results)
+
+
+@cli.command("test")
+@click.argument("path", default="evals", type=str)
+@click.option("--mock", is_flag=True, help="Force mock/offline evaluation mode.")
+@click.option("--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0).")
+@click.option("--concurrency", default=10, type=int, help="Max concurrent evaluation batches.")
+@click.option("-x", "--fail-fast", is_flag=True, help="Stop execution on first test failure.")
+@click.option("-w", "--watch", is_flag=True, help="Watch files for changes and re-run automatically.")
+@click.option("--json", "is_json", is_flag=True, help="Output JSON report to stdout.")
+@click.option("--output-json", type=click.Path(), help="Write JSON report to a file.")
+@click.option("--markdown", is_flag=True, help="Output Markdown report to stdout.")
+@click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
+def test_cmd(
+    path: str,
+    mock: bool,
+    threshold: float,
+    concurrency: int,
+    fail_fast: bool,
+    watch: bool,
+    is_json: bool,
+    output_json: Optional[str],
+    markdown: bool,
+    output_md: Optional[str],
+):
+    """Run evaluation test suites across YAML/JSON/JSONL/CSV files."""
+    if not os.path.exists(path):
+        console.print(f"[bold red]Error:[/] Target path '[bold]{path}[/]' does not exist.", file=sys.stderr)
+        console.print("[dim]Tip: Run '[cyan]jev-judge init[/]' to generate sample test files.[/]")
+        sys.exit(1)
+
+    if not watch:
+        success = _execute_run(
+            path=path,
+            mock=mock,
+            threshold=threshold,
+            concurrency=concurrency,
+            fail_fast=fail_fast,
+            is_json=is_json,
+            markdown=markdown,
+            output_md=output_md,
+            output_json=output_json,
+        )
+        sys.exit(0 if success else 1)
+
+    # Watch Mode Loop
+    console.print(f"[bold cyan]⚡ Watch mode active[/] — watching '[white]{path}[/]' for edits... [dim](Ctrl+C to quit)[/]\n")
+    last_mtimes = {}
+
+    def get_mtimes():
+        mtimes = {}
+        if os.path.isfile(path):
+            mtimes[path] = os.path.getmtime(path)
+        else:
+            for root, _, files in os.walk(path):
+                for f in files:
+                    if f.endswith((".yaml", ".yml", ".json", ".jsonl", ".csv")):
+                        fp = os.path.join(root, f)
+                        try:
+                            mtimes[fp] = os.path.getmtime(fp)
+                        except OSError:
+                            pass
+        return mtimes
+
+    try:
+        last_mtimes = get_mtimes()
+        _execute_run(
+            path=path,
+            mock=mock,
+            threshold=threshold,
+            concurrency=concurrency,
+            fail_fast=fail_fast,
+            is_json=False,
+            markdown=False,
+            output_md=output_md,
+            output_json=output_json,
+        )
+
+        while True:
+            time.sleep(0.5)
+            current_mtimes = get_mtimes()
+            if current_mtimes != last_mtimes:
+                last_mtimes = current_mtimes
+                console.clear()
+                console.print("[bold yellow]↻ Change detected, re-running evals...[/]\n")
+                _execute_run(
+                    path=path,
+                    mock=mock,
+                    threshold=threshold,
+                    concurrency=concurrency,
+                    fail_fast=fail_fast,
+                    is_json=False,
+                    markdown=False,
+                    output_md=output_md,
+                    output_json=output_json,
+                )
+    except KeyboardInterrupt:
+        console.print("\n[dim]Stopped watch mode.[/]")
+        sys.exit(0)
 
 
 @cli.command("init")

@@ -1,0 +1,44 @@
+name: "🐛 Bug Report"
+description: "Report a bug or unexpected behavior in jev-judge"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much detail as possible.
+  - type: input
+    id: version
+    attributes:
+      label: "jev-judge Version"
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: "Python Version & OS"
+      placeholder: "e.g. Python 3.11 on macOS Sonoma"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description"
+      description: "A clear and concise description of what the bug is."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Reproduction Steps or YAML Config"
+      description: "Please share the minimal YAML test case or Python code snippet."
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+      description: "What did you expect to happen instead?"
+    validations:
+      required: true

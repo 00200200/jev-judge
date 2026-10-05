@@ -1,9 +1,11 @@
-"""Asynchronous test suite runner with parallel execution."""
+"""Asynchronous test suite runner with parallel execution and multi-format support."""
 
 import asyncio
 import os
 import glob
 import time
+import json
+import csv
 from typing import List, Optional
 import yaml
 
@@ -13,15 +15,19 @@ from jev_judge.models import TestCase, TestCaseResult, TestSuite, TestSuiteResul
 
 
 class TestRunner:
+    __test__ = False
+
     def __init__(
         self,
         client: Optional[JevClient] = None,
         concurrency: int = 10,
         default_threshold: float = 0.75,
+        fail_fast: bool = False,
     ):
         self.client = client or JevClient()
         self.concurrency = concurrency
         self.default_threshold = default_threshold
+        self.fail_fast = fail_fast
         self.semaphore = asyncio.Semaphore(concurrency)
 
     async def run_test_case(self, tc: TestCase) -> TestCaseResult:
@@ -59,8 +65,16 @@ class TestRunner:
         """Run all test cases in a test suite concurrently."""
         start = time.perf_counter()
 
-        tasks = [self.run_test_case(tc) for tc in suite.tests]
-        results: List[TestCaseResult] = await asyncio.gather(*tasks)
+        if self.fail_fast:
+            results: List[TestCaseResult] = []
+            for tc in suite.tests:
+                res = await self.run_test_case(tc)
+                results.append(res)
+                if not res.passed:
+                    break
+        else:
+            tasks = [self.run_test_case(tc) for tc in suite.tests]
+            results = await asyncio.gather(*tasks)
 
         duration_ms = (time.perf_counter() - start) * 1000.0
         passed_count = sum(1 for r in results if r.passed)
@@ -79,20 +93,60 @@ class TestRunner:
         )
 
     def load_suite_from_file(self, file_path: str) -> TestSuite:
-        """Parse a YAML or JSON test suite file."""
+        """Parse YAML, JSON, JSONL, or CSV test suite files."""
+        base_name = os.path.basename(file_path)
+
+        # 1. JSON Lines (.jsonl)
+        if file_path.endswith(".jsonl"):
+            test_cases = []
+            with open(file_path, "r", encoding="utf-8") as f:
+                for idx, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    item = json.loads(line)
+                    if "name" not in item:
+                        item["name"] = f"Row #{idx}"
+                    test_cases.append(TestCase(**item))
+            return TestSuite(name=base_name, tests=test_cases)
+
+        # 2. CSV (.csv)
+        if file_path.endswith(".csv"):
+            test_cases = []
+            with open(file_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for idx, row in enumerate(reader, 1):
+                    assertions = {}
+                    if "assertions" in row and row["assertions"]:
+                        try:
+                            assertions = json.loads(row["assertions"])
+                        except Exception:
+                            assertions = {"faithfulness": "pass"}
+                    else:
+                        assertions = {"faithfulness": "pass"}
+
+                    test_cases.append(
+                        TestCase(
+                            name=row.get("name") or f"CSV Row #{idx}",
+                            input=row.get("input"),
+                            context=row.get("context"),
+                            output=row.get("output", ""),
+                            assertions=assertions,
+                        )
+                    )
+            return TestSuite(name=base_name, tests=test_cases)
+
+        # 3. YAML or JSON
         with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         if isinstance(data, list):
-            # Simple list of test cases
             test_cases = [TestCase(**item) for item in data]
-            base_name = os.path.basename(file_path)
             return TestSuite(name=base_name, tests=test_cases)
         elif isinstance(data, dict):
             if "tests" in data:
                 return TestSuite(**data)
-            # Single test case dictionary
-            return TestSuite(name=os.path.basename(file_path), tests=[TestCase(**data)])
+            return TestSuite(name=base_name, tests=[TestCase(**data)])
         else:
             raise ValueError(f"Unrecognized format in test file: {file_path}")
 
@@ -103,10 +157,9 @@ class TestRunner:
         if os.path.isfile(target_path):
             files_to_run.append(target_path)
         elif os.path.isdir(target_path):
-            for ext in ("*.yaml", "*.yml", "*.json"):
+            for ext in ("*.yaml", "*.yml", "*.json", "*.jsonl", "*.csv"):
                 files_to_run.extend(glob.glob(os.path.join(target_path, "**", ext), recursive=True))
         else:
-            # Pattern matching
             matched = glob.glob(target_path)
             if matched:
                 files_to_run.extend(matched)
@@ -118,5 +171,7 @@ class TestRunner:
             suite = self.load_suite_from_file(fp)
             res = await self.run_suite(suite, file_path=fp)
             suite_results.append(res)
+            if self.fail_fast and not res.is_success:
+                break
 
         return suite_results

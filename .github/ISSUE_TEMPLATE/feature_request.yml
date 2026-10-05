@@ -1,0 +1,27 @@
+name: "🚀 Feature Request"
+description: "Suggest an idea or new evaluator for jev-judge"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome feature ideas and new evaluators!
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Use Case"
+      description: "Is your feature request related to a problem or evaluation requirement?"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe what you want to happen and how the YAML or Python API would look."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Any alternative solutions or features you've considered?"

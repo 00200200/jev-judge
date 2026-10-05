@@ -54,5 +54,8 @@ dev = [
 [project.scripts]
 jev-judge = "jev_judge.cli:main"
 
+[project.entry-points.pytest11]
+jev_judge = "jev_judge.fixtures"
+
 [tool.hatch.build.targets.wheel]
 packages = ["jev_judge"]
