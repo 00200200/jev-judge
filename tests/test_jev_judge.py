@@ -96,3 +96,124 @@ def test_pytest_fixture(jev_judge):
         assertions={"faithfulness": "pass"},
     )
     assert res.passed is True
+
+
+import asyncio
+import json
+import xml.etree.ElementTree as ET
+from jev_judge.client import JevClient
+from jev_judge.models import DecisionResult, TestCaseResult, TestSuiteResult
+from jev_judge.reporters.formats import resolve_output_format
+from jev_judge.reporters.github import generate_github_annotations
+from jev_judge.reporters.json_report import build_json_report
+from jev_judge.reporters.junit import generate_junit_xml
+
+
+def _tiny_suite_results():
+    passing = TestCase(name="grounded answer", output="Warsaw", assertions={"faithfulness": "pass"})
+    failing = TestCase(name="hallucinated plan", output="$5 student plan", assertions={"faithfulness": "pass"})
+    ok = DecisionResult(
+        assertion_name="faithfulness",
+        passed=True,
+        decision_type=DecisionType.NOUL,
+        value=True,
+        probability=0.96,
+        threshold=0.80,
+        latency_ms=12.0,
+        cost_usd=0.00004,
+    )
+    bad = DecisionResult(
+        assertion_name="faithfulness",
+        passed=False,
+        decision_type=DecisionType.NOUL,
+        value=False,
+        probability=0.21,
+        threshold=0.80,
+        latency_ms=11.0,
+        cost_usd=0.00004,
+        reason="Output is not grounded in context",
+    )
+    return [
+        TestSuiteResult(
+            suite_name="tiny",
+            file_path="evals/tiny.yaml",
+            total_tests=2,
+            passed_tests=1,
+            failed_tests=1,
+            duration_ms=40.0,
+            total_cost_usd=0.00008,
+            results=[
+                TestCaseResult(
+                    test_case=passing,
+                    passed=True,
+                    decisions={"faithfulness": ok},
+                    duration_ms=20.0,
+                    total_cost_usd=0.00004,
+                ),
+                TestCaseResult(
+                    test_case=failing,
+                    passed=False,
+                    decisions={"faithfulness": bad},
+                    duration_ms=20.0,
+                    total_cost_usd=0.00004,
+                ),
+            ],
+        )
+    ]
+
+
+def test_json_format_is_json_loads_parseable():
+    payload = json.loads(json.dumps(build_json_report(_tiny_suite_results())))
+    assert payload["totals"]["suites"] == 1
+    assert payload["totals"]["cases"] == 2
+    assert payload["totals"]["failed"] == 1
+    assert payload["totals"]["passed"] == 1
+    assert len(payload["suites"]) == 1
+    assert len(payload["cases"]) == 2
+    assert len(payload["decisions"]) == 2
+    assert payload["suites"][0]["file_path"] == "evals/tiny.yaml"
+    assert payload["cases"][1]["passed"] is False
+    assert payload["decisions"][1]["assertion_name"] == "faithfulness"
+
+
+def test_junit_format_parses_and_marks_failures():
+    xml_text = generate_junit_xml(_tiny_suite_results())
+    root = ET.fromstring(xml_text)
+    assert root.tag == "testsuites"
+    assert root.attrib["tests"] == "2"
+    assert root.attrib["failures"] == "1"
+    cases = list(root.iter("testcase"))
+    assert len(cases) == 2
+    failures = list(root.iter("failure"))
+    assert len(failures) == 1
+    assert "faithfulness" in failures[0].attrib["message"]
+    assert failures[0].attrib["message"] == failures[0].text
+
+
+def test_github_format_emits_error_for_failed_case():
+    text = generate_github_annotations(_tiny_suite_results())
+    assert "::error file=evals/tiny.yaml,line=1,title=hallucinated plan::" in text
+    assert "grounded answer" not in text
+
+
+def test_format_flag_wins_over_markdown_and_github_actions():
+    assert resolve_output_format("json", markdown_alias=True, github_actions="true") == "json"
+    assert resolve_output_format(None, markdown_alias=True, github_actions="true") == "markdown"
+    assert resolve_output_format(None, markdown_alias=False, github_actions="true") == "markdown"
+    assert resolve_output_format(None, markdown_alias=False, github_actions="") == "pretty"
+
+
+def test_runner_filter_pattern():
+    from jev_judge.models import TestSuite
+    suite = TestSuite(
+        name="filter_suite",
+        tests=[
+            TestCase(name="Grounded Answer: Return Policy", output="policy", assertions={"faithfulness": "pass"}),
+            TestCase(name="Detected Hallucination: Free Shipping", output="free", assertions={"faithfulness": "pass"}),
+            TestCase(name="Technical Spec Query", output="spec", assertions={"faithfulness": "pass"}),
+        ],
+    )
+    runner = TestRunner(client=JevClient(force_mock=True), filter_pattern="Hallucination")
+    res = asyncio.run(runner.run_suite(suite))
+    assert res.total_tests == 1
+    assert res.results[0].test_case.name == "Detected Hallucination: Free Shipping"

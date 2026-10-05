@@ -274,11 +274,19 @@ jobs:
 # Run all tests in a directory
 jev-judge test evals/
 
-# Watch mode — re-runs instantly on save
-jev-judge test evals/ -w
+# Filter tests by name pattern (like Vitest / pytest -k)
+jev-judge test evals/ -k "Hallucination"
 
 # Stop execution on first failure
 jev-judge test evals/ -x
+
+# Machine-readable formats for CI (json, junit XML, GitHub annotations)
+jev-judge test evals/ --format junit > junit.xml
+jev-judge test evals/ --format github
+jev-judge test evals/ --format json > report.json
+
+# Watch mode — re-runs instantly on save
+jev-judge test evals/ -w
 
 # Evaluate datasets (JSONL or CSV)
 jev-judge test evals/dataset.jsonl
