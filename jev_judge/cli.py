@@ -353,6 +353,15 @@ def benchmark_cmd():
     )
 
 
+@cli.command("mcp")
+@click.option("--mock", is_flag=True, help="Force mock/offline evaluation mode.")
+def mcp_cmd(mock: bool):
+    """Run as an MCP (Model Context Protocol) server over stdio for Claude, Cursor, and agents."""
+    from jev_judge.mcp_server import McpServer
+    server = McpServer(force_mock=mock)
+    asyncio.run(server.run_stdio())
+
+
 def main():
     cli()
 

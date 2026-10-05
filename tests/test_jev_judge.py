@@ -272,3 +272,30 @@ def test_numeric_hallucination_detection():
         assertions={"faithfulness": "pass"},
     )
     assert res.passed is False
+
+
+def test_mcp_server_tools_and_call():
+    from jev_judge.mcp_server import McpServer
+    server = McpServer(force_mock=True)
+    tools = server.get_tool_definitions()
+    tool_names = [t["name"] for t in tools]
+    assert "jev_evaluate" in tool_names
+    assert "jev_run_suite" in tool_names
+
+    # Test evaluating via MCP tool call
+    res = asyncio.run(
+        server.handle_tool_call(
+            "jev_evaluate",
+            {
+                "output": "Paris is the capital of France.",
+                "context": "Paris is France's capital city.",
+                "assertions": {"faithfulness": "pass"}
+            }
+        )
+    )
+    assert "content" in res
+    assert len(res["content"]) > 0
+    payload = json.loads(res["content"][0]["text"])
+    assert payload["passed"] is True
+    assert "faithfulness" in payload["decisions"]
+

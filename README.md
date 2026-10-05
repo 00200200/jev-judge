@@ -234,6 +234,37 @@ repos:
 
 ---
 
+## ⚡ Model Context Protocol (MCP) Server
+
+`jev-judge` includes a built-in MCP server for **Claude Code**, **Cursor**, **Windsurf**, and **Claude Desktop**, allowing coding agents to evaluate their own generated outputs, verify RAG faithfulness, or check command safety before execution.
+
+### Add to Claude Desktop or Cursor:
+
+```json
+{
+  "mcpServers": {
+    "jev-judge": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/00200200/jev-judge", "jev-judge", "mcp"],
+      "env": {
+        "TYPESAFE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Or via Claude Code CLI:
+```bash
+claude mcp add --scope user jev-judge -- uvx --from git+https://github.com/00200200/jev-judge jev-judge mcp
+```
+
+### Provided Agent Tools:
+* `jev_evaluate`: Sub-100ms deterministic verification of faithfulness, hallucinations, and safety.
+* `jev_run_suite`: Run test suites on demand directly from the agent session.
+
+---
+
 ## 🤖 GitHub Action (CI/CD)
 
 Add continuous evaluation to your repository in `.github/workflows/evals.yml`:
