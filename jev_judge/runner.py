@@ -23,11 +23,13 @@ class TestRunner:
         concurrency: int = 10,
         default_threshold: float = 0.75,
         fail_fast: bool = False,
+        filter_pattern: Optional[str] = None,
     ):
         self.client = client or JevClient()
         self.concurrency = concurrency
         self.default_threshold = default_threshold
         self.fail_fast = fail_fast
+        self.filter_pattern = filter_pattern
         self.semaphore = asyncio.Semaphore(concurrency)
 
     async def run_test_case(self, tc: TestCase) -> TestCaseResult:
@@ -62,18 +64,42 @@ class TestRunner:
             )
 
     async def run_suite(self, suite: TestSuite, file_path: Optional[str] = None) -> TestSuiteResult:
-        """Run all test cases in a test suite concurrently."""
+        """Run test cases in a test suite, optionally filtered by name pattern."""
+        import fnmatch
+
         start = time.perf_counter()
+
+        tests_to_run = suite.tests
+        if self.filter_pattern:
+            pattern = self.filter_pattern.lower()
+            if not ("*" in pattern or "?" in pattern or "[" in pattern):
+                pattern = f"*{pattern}*"
+            tests_to_run = [
+                tc for tc in suite.tests
+                if fnmatch.fnmatch(tc.name.lower(), pattern)
+            ]
+
+        if not tests_to_run:
+            return TestSuiteResult(
+                suite_name=suite.name,
+                file_path=file_path,
+                total_tests=0,
+                passed_tests=0,
+                failed_tests=0,
+                duration_ms=0.0,
+                total_cost_usd=0.0,
+                results=[],
+            )
 
         if self.fail_fast:
             results: List[TestCaseResult] = []
-            for tc in suite.tests:
+            for tc in tests_to_run:
                 res = await self.run_test_case(tc)
                 results.append(res)
                 if not res.passed:
                     break
         else:
-            tasks = [self.run_test_case(tc) for tc in suite.tests]
+            tasks = [self.run_test_case(tc) for tc in tests_to_run]
             results = await asyncio.gather(*tasks)
 
         duration_ms = (time.perf_counter() - start) * 1000.0

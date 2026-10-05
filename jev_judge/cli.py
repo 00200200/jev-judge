@@ -27,19 +27,25 @@ def cli(ctx: click.Context):
         click.echo(ctx.get_help())
 
 
+from jev_judge.reporters.formats import resolve_output_format, OUTPUT_FORMATS
+from jev_judge.reporters.json_report import build_json_report
+from jev_judge.reporters.junit import generate_junit_xml
+from jev_judge.reporters.github import generate_github_annotations
+
+
 def _execute_run(
     path: str,
     mock: bool,
     threshold: float,
     concurrency: int,
     fail_fast: bool,
-    is_json: bool,
-    markdown: bool,
+    filter_pattern: Optional[str],
+    fmt: str,
     output_md: Optional[str],
     output_json: Optional[str],
 ) -> bool:
     client = JevClient(force_mock=mock)
-    if not is_json and not markdown:
+    if fmt == "pretty":
         print_banner(console, client.is_mock)
 
     runner = TestRunner(
@@ -47,6 +53,7 @@ def _execute_run(
         concurrency=concurrency,
         default_threshold=threshold,
         fail_fast=fail_fast,
+        filter_pattern=filter_pattern,
     )
 
     try:
@@ -56,35 +63,37 @@ def _execute_run(
         return False
 
     if not suite_results:
-        if not is_json and not markdown:
+        if fmt == "pretty":
             console.print(f"[yellow]No test files (.yaml, .yml, .json, .jsonl, .csv) found in '{path}'.[/]")
         return True
 
-    # Terminal output
-    if not is_json and not markdown:
-        print_suite_results(console, suite_results)
-
-    # JSON export
-    if is_json or output_json:
-        json_data = [s.model_dump() for s in suite_results]
-        json_str = json.dumps(json_data, indent=2)
-        if is_json:
-            click.echo(json_str)
-        if output_json:
-            with open(output_json, "w", encoding="utf-8") as f:
-                f.write(json_str)
-            if not is_json and not markdown:
-                console.print(f"[dim]Saved JSON report to [bold]{output_json}[/][/]")
-
-    # Markdown export (for CI / PR comment)
+    # Output according to format
     md_content = generate_markdown_report(suite_results)
-    if markdown:
+
+    if fmt == "pretty":
+        print_suite_results(console, suite_results)
+    elif fmt == "markdown":
         click.echo(md_content)
+    elif fmt == "json":
+        click.echo(json.dumps(build_json_report(suite_results), indent=2))
+    elif fmt == "junit":
+        click.echo(generate_junit_xml(suite_results))
+    elif fmt == "github":
+        annotations = generate_github_annotations(suite_results)
+        if annotations:
+            click.echo(annotations)
+
+    # File exports
+    if output_json:
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(build_json_report(suite_results), f, indent=2)
+        if fmt == "pretty":
+            console.print(f"[dim]Saved JSON report to [bold]{output_json}[/][/]")
 
     if output_md:
         with open(output_md, "w", encoding="utf-8") as f:
             f.write(md_content)
-        if not is_json and not markdown:
+        if fmt == "pretty":
             console.print(f"[dim]Saved Markdown report to [bold]{output_md}[/][/]")
 
     # Support GitHub Actions environment automatically
@@ -105,10 +114,18 @@ def _execute_run(
 @click.option("--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0).")
 @click.option("--concurrency", default=10, type=int, help="Max concurrent evaluation batches.")
 @click.option("-x", "--fail-fast", is_flag=True, help="Stop execution on first test failure.")
+@click.option("-k", "--filter", "filter_pattern", default=None, type=str, help="Filter test cases by name pattern (case-insensitive glob).")
 @click.option("-w", "--watch", is_flag=True, help="Watch files for changes and re-run automatically.")
-@click.option("--json", "is_json", is_flag=True, help="Output JSON report to stdout.")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(OUTPUT_FORMATS, case_sensitive=False),
+    default=None,
+    help="Output format: pretty|markdown|json|junit|github. Default: pretty (markdown when GITHUB_ACTIONS is set). Always overrides --markdown.",
+)
+@click.option("--json", "is_json", is_flag=True, help="Alias for --format json.")
 @click.option("--output-json", type=click.Path(), help="Write JSON report to a file.")
-@click.option("--markdown", is_flag=True, help="Output Markdown report to stdout.")
+@click.option("--markdown", is_flag=True, help="Alias for --format markdown.")
 @click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
 def test_cmd(
     path: str,
@@ -116,7 +133,9 @@ def test_cmd(
     threshold: float,
     concurrency: int,
     fail_fast: bool,
+    filter_pattern: Optional[str],
     watch: bool,
+    output_format: Optional[str],
     is_json: bool,
     output_json: Optional[str],
     markdown: bool,
@@ -128,6 +147,15 @@ def test_cmd(
         console.print("[dim]Tip: Run '[cyan]jev-judge init[/]' to generate sample test files.[/]")
         sys.exit(1)
 
+    effective_format = output_format
+    if not effective_format:
+        if is_json:
+            effective_format = "json"
+        elif markdown:
+            effective_format = "markdown"
+
+    fmt = resolve_output_format(effective_format, markdown_alias=markdown)
+
     if not watch:
         success = _execute_run(
             path=path,
@@ -135,8 +163,8 @@ def test_cmd(
             threshold=threshold,
             concurrency=concurrency,
             fail_fast=fail_fast,
-            is_json=is_json,
-            markdown=markdown,
+            filter_pattern=filter_pattern,
+            fmt=fmt,
             output_md=output_md,
             output_json=output_json,
         )
@@ -169,8 +197,8 @@ def test_cmd(
             threshold=threshold,
             concurrency=concurrency,
             fail_fast=fail_fast,
-            is_json=False,
-            markdown=False,
+            filter_pattern=filter_pattern,
+            fmt=fmt,
             output_md=output_md,
             output_json=output_json,
         )
@@ -188,8 +216,8 @@ def test_cmd(
                     threshold=threshold,
                     concurrency=concurrency,
                     fail_fast=fail_fast,
-                    is_json=False,
-                    markdown=False,
+                    filter_pattern=filter_pattern,
+                    fmt=fmt,
                     output_md=output_md,
                     output_json=output_json,
                 )
