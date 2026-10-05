@@ -66,6 +66,7 @@ class DecisionResult(BaseModel):
 
 
 class TestCaseResult(BaseModel):
+    __test__ = False
     test_case: TestCase
     passed: bool
     decisions: Dict[str, DecisionResult]
@@ -74,6 +75,7 @@ class TestCaseResult(BaseModel):
 
 
 class TestSuiteResult(BaseModel):
+    __test__ = False
     suite_name: str
     file_path: Optional[str] = None
     total_tests: int
