@@ -1,0 +1,8 @@
+- id: jev-judge
+  name: jev-judge
+  description: Fast deterministic LLM & RAG evaluations before git commit
+  entry: jev-judge test
+  language: python
+  types: [yaml]
+  files: ^evals/
+  pass_filenames: false

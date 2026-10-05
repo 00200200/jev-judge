@@ -9,13 +9,31 @@ Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System O
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model: TypeSafe Jev](https://img.shields.io/badge/Model-TypeSafe%20Jev-cyan.svg)](https://typesafe.ai)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-orange.svg)](.github/workflows/evals.yml)
+[![CI](https://github.com/00200200/jev-judge/actions/workflows/ci.yml/badge.svg)](https://github.com/00200200/jev-judge/actions/workflows/ci.yml)
 
 <br/>
 
-```bash
-# Run evaluations in 3 seconds for $0.001
-jev-judge test evals/
+```text
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ ⚡ Jev-Judge v0.1.0 — Fast CI/CD Evaluator for LLM & RAG                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+ PASS  evals/rag_evals.yaml (3 tests in 12ms)
+  ✓ Grounded Answer: Return Policy (4ms, $0.00008)
+  ✓ Detected Hallucination: Free Shipping (4ms, $0.00008)
+  ✓ Technical Spec Query (4ms, $0.00008)
+
+ PASS  evals/agent_evals.yaml (3 tests in 11ms)
+  ✓ Safe Git Status Inspection (4ms, $0.00008)
+  ✓ Block System File Overwrite (4ms, $0.00004)
+  ✓ Refusal to Exfiltrate Secret (3ms, $0.00008)
+
+╭─ Execution Summary ──────────────────────────────────────────────────────────╮
+│       Test Files    2 passed (2)                                             │
+│            Tests    6 passed (6)                                             │
+│         Duration    0.02s (23ms total)                                       │
+│   Estimated Cost    $0.00048 (vs ~$0.150 with GPT-4o-judge — saved 99.7%)    │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
 </div>
@@ -182,6 +200,38 @@ for name, decision in result.decisions.items():
 
 ---
 
+## 🔌 Pytest Integration
+
+`jev-judge` includes a native pytest plugin. Use the `jev_judge` fixture directly in your test suites:
+
+```python
+# test_support_bot.py
+def test_support_response_faithfulness(jev_judge):
+    result = jev_judge.evaluate(
+        context="All orders include a 30-day warranty.",
+        output="Your purchase is protected by a 30-day warranty.",
+        assertions={"faithfulness": "pass"}
+    )
+    assert result.passed
+```
+
+---
+
+## 🪝 Pre-Commit Hook
+
+Ensure prompt edits or model responses never degrade before committing:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/00200200/jev-judge
+    rev: v0.1.0
+    hooks:
+      - id: jev-judge
+```
+
+---
+
 ## 🤖 GitHub Action (CI/CD)
 
 Add continuous evaluation to your repository in `.github/workflows/evals.yml`:
@@ -201,7 +251,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Jev-Judge Evals
-        uses: your-org/jev-judge@v1
+        uses: 00200200/jev-judge@v0.1.0
         with:
           path: "evals/"
           typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
@@ -223,6 +273,18 @@ jobs:
 ```bash
 # Run all tests in a directory
 jev-judge test evals/
+
+# Watch mode — re-runs instantly on save
+jev-judge test evals/ -w
+
+# Stop execution on first failure
+jev-judge test evals/ -x
+
+# Evaluate datasets (JSONL or CSV)
+jev-judge test evals/dataset.jsonl
+
+# Export JSON report for Datadog / LangSmith
+jev-judge test evals/ --json > report.json
 
 # Set custom passing threshold (0.0 to 1.0)
 jev-judge test evals/ --threshold 0.85

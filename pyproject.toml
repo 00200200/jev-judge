@@ -59,3 +59,7 @@ jev_judge = "jev_judge.fixtures"
 
 [tool.hatch.build.targets.wheel]
 packages = ["jev_judge"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:deepeval"
+testpaths = ["tests"]

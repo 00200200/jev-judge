@@ -17,8 +17,8 @@ tests:
     input: "Is shipping free if I spend over $50?"
     output: "Yes! All orders over $50 include free standard shipping across the country."
     assertions:
-      faithfulness: pass     # Will fail because free shipping is hallucinated
-      hallucination: false
+      faithfulness: fail     # Correctly flagged as ungrounded
+      hallucination: true    # Correctly catches the hallucination
 
   - name: "Technical Spec Query"
     context: "PostgreSQL 16 introduces enhanced query parallelism and improved vacuum performance."

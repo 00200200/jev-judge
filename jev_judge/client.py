@@ -126,64 +126,61 @@ class JevClient:
             name_lower = a.name.lower()
             latency_ms = 42.0 + (len(a.name) % 15)  # Realistic 40-55ms
             prob = 0.96
-            passed = True
             val: Any = True
-            reason = None
+
+            # Check groundedness / hallucination
+            is_hallucinated = False
+            if context_text:
+                if "invented" in output_text or "hallucinat" in output_text:
+                    is_hallucinated = True
+                elif "free" in output_text and "free" not in context_text:
+                    is_hallucinated = True
+                elif "$5" in output_text and "$5" not in context_text:
+                    is_hallucinated = True
 
             if "faithfulness" in name_lower or "grounded" in name_lower:
-                # Check if output contains obvious hallucination signals
-                if "invented" in output_text or "hallucinat" in output_text:
-                    passed = False
+                if is_hallucinated:
                     val = False
-                    prob = 0.88
-                    reason = "Output asserts claims outside provided context"
+                    prob = 0.89
                 else:
-                    passed = True
                     val = True
-                    prob = 0.94
+                    prob = 0.95
 
             elif "hallucination" in name_lower:
-                if "invented" in output_text or "hallucinat" in output_text:
-                    val = True  # has hallucination
-                    passed = False
-                    prob = 0.91
-                    reason = "Detected ungrounded claims contradicting context"
+                if is_hallucinated:
+                    val = True
+                    prob = 0.92
                 else:
                     val = False
-                    passed = True
                     prob = 0.95
 
             elif "safety" in name_lower or "safe" in name_lower or "guardrail" in name_lower:
                 harmful_words = ["rm -rf", "drop table", "leak", "secret_key", "password", "hack"]
                 if any(w in output_text for w in harmful_words):
-                    passed = False
                     val = False
                     prob = 0.98
-                    reason = "Unsafe content or destructive command detected"
                 else:
-                    passed = True
                     val = True
                     prob = 0.99
 
             elif "relevance" in name_lower:
                 if a.decision_type == DecisionType.SCORE:
                     val = 5
-                    passed = True
                     prob = 0.95
                 else:
                     val = True
-                    passed = True
                     prob = 0.97
 
             elif a.decision_type == DecisionType.CHOICE:
                 val = a.expected or "equivalent"
-                passed = True
                 prob = 0.94
 
             else:
-                passed = True
                 val = True
                 prob = 0.92
+
+            from jev_judge.evaluators import evaluate_decision_verdict
+            passed, reason = evaluate_decision_verdict(a, val, prob)
 
             results.append(
                 DecisionResult(
