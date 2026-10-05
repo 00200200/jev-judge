@@ -233,6 +233,13 @@ jev-judge test evals/ --concurrency 20
 # Export Markdown report for CI step summary
 jev-judge test evals/ --markdown > report.md
 
+# Machine-readable CI formats (--format always wins; --markdown aliases markdown)
+jev-judge test evals/ --format json
+jev-judge test evals/ --format junit
+jev-judge test evals/ --format github
+jev-judge test evals/ --format markdown
+jev-judge test evals/ --format pretty
+
 # View performance benchmark table
 jev-judge benchmark
 

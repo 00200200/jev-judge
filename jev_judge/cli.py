@@ -1,5 +1,6 @@
 """Command Line Interface for Jev-Judge."""
 
+import json
 import os
 import sys
 import asyncio
@@ -13,6 +14,10 @@ from jev_judge.client import JevClient
 from jev_judge.runner import TestRunner
 from jev_judge.reporters.terminal import print_banner, print_suite_results
 from jev_judge.reporters.markdown import generate_markdown_report
+from jev_judge.reporters.json_report import build_json_report
+from jev_judge.reporters.junit import generate_junit_xml
+from jev_judge.reporters.github import generate_github_annotations
+from jev_judge.reporters.formats import OUTPUT_FORMATS, resolve_output_format
 
 console = Console()
 
@@ -30,24 +35,34 @@ def cli(ctx: click.Context):
 @click.option("--mock", is_flag=True, help="Force mock/offline evaluation mode.")
 @click.option("--threshold", default=0.75, type=float, help="Default confidence threshold (0.0 to 1.0).")
 @click.option("--concurrency", default=10, type=int, help="Max concurrent evaluation batches.")
-@click.option("--markdown", is_flag=True, help="Output Markdown report to stdout.")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(OUTPUT_FORMATS, case_sensitive=False),
+    default=None,
+    help="Output format. Default: pretty (markdown when GITHUB_ACTIONS is set). Always overrides --markdown.",
+)
+@click.option("--markdown", is_flag=True, help="Alias for --format markdown.")
 @click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
 def test_cmd(
     path: str,
     mock: bool,
     threshold: float,
     concurrency: int,
+    output_format: Optional[str],
     markdown: bool,
     output_md: Optional[str],
 ):
     """Run evaluation test suites across YAML/JSON files."""
+    fmt = resolve_output_format(output_format, markdown_alias=markdown)
+
     if not os.path.exists(path):
         console.print(f"[bold red]Error:[/] Target path '[bold]{path}[/]' does not exist.", file=sys.stderr)
         console.print("[dim]Tip: Run '[cyan]jev-judge init[/]' to generate sample test files.[/]")
         sys.exit(1)
 
     client = JevClient(force_mock=mock)
-    if not markdown:
+    if fmt == "pretty":
         print_banner(console, client.is_mock)
 
     runner = TestRunner(client=client, concurrency=concurrency, default_threshold=threshold)
@@ -62,20 +77,25 @@ def test_cmd(
         console.print(f"[yellow]No test files (.yaml, .yml, .json) found in '{path}'.[/]")
         sys.exit(0)
 
-    # Terminal output
-    if not markdown:
-        print_suite_results(console, suite_results)
-
-    # Markdown export (for CI / PR comment)
     md_content = generate_markdown_report(suite_results)
 
-    if markdown:
+    if fmt == "pretty":
+        print_suite_results(console, suite_results)
+    elif fmt == "markdown":
         click.echo(md_content)
+    elif fmt == "json":
+        click.echo(json.dumps(build_json_report(suite_results), indent=2))
+    elif fmt == "junit":
+        click.echo(generate_junit_xml(suite_results))
+    elif fmt == "github":
+        annotations = generate_github_annotations(suite_results)
+        if annotations:
+            click.echo(annotations)
 
     if output_md:
         with open(output_md, "w", encoding="utf-8") as f:
             f.write(md_content)
-        if not markdown:
+        if fmt == "pretty":
             console.print(f"[dim]Saved Markdown report to [bold]{output_md}[/][/]")
 
     # Support GitHub Actions environment automatically
