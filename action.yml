@@ -17,10 +17,22 @@ inputs:
     description: "Confidence pass threshold (0.0 to 1.0)"
     required: false
     default: "0.75"
+  mock:
+    description: "Force mock evaluation mode (true/false, default: true if no API key is provided)"
+    required: false
+    default: ""
+  fail-on:
+    description: "When to fail the action step (any = fail on test failure, never = always pass exit code)"
+    required: false
+    default: "any"
   comment-pr:
     description: "Automatically comment on the Pull Request with test results"
     required: false
     default: "true"
+  github-token:
+    description: "GitHub Token for posting PR comments"
+    required: false
+    default: "${{ github.token }}"
 
 runs:
   using: "composite"
@@ -32,7 +44,12 @@ runs:
 
     - name: Install jev-judge
       shell: bash
-      run: pip install jev-judge
+      run: |
+        if [ -f "$GITHUB_ACTION_PATH/pyproject.toml" ]; then
+          pip install "$GITHUB_ACTION_PATH"
+        else
+          pip install jev-judge
+        fi
 
     - name: Run Evals
       id: run-evals
@@ -40,4 +57,43 @@ runs:
       env:
         TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
       run: |
-        jev-judge test "${{ inputs.path }}" --threshold "${{ inputs.threshold }}" --output-md eval-summary.md
+        ARGS=(test "${{ inputs.path }}" --threshold "${{ inputs.threshold }}" --output-md eval-summary.md)
+        if [ "${{ inputs.mock }}" = "true" ] || [ -z "${{ inputs.typesafe-api-key }}" ]; then
+          ARGS+=(--mock)
+        fi
+
+        set +e
+        jev-judge "${ARGS[@]}"
+        EXIT_CODE=$?
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+        if [ -f eval-summary.md ] && [ -n "$GITHUB_STEP_SUMMARY" ]; then
+          cat eval-summary.md >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if [ "${{ inputs.fail-on }}" != "never" ] && [ $EXIT_CODE -ne 0 ]; then
+          exit $EXIT_CODE
+        fi
+
+    - name: Comment on Pull Request
+      if: inputs.comment-pr == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -f eval-summary.md ]; then
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          HEADER="<!-- jev-judge-eval-comment -->"
+          BODY=$(printf "%s\n\n%s" "$HEADER" "$(cat eval-summary.md)")
+
+          # Find existing comment to update (sticky comment)
+          EXISTING_ID=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$HEADER\")) | .id" | head -n 1)
+
+          if [ -n "$EXISTING_ID" ]; then
+            gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING_ID" \
+              -f body="$BODY" > /dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body "$BODY" > /dev/null
+          fi
+        fi
