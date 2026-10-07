@@ -13,7 +13,7 @@ from jev_judge.models import TestSuiteResult
 def print_banner(console: Console, is_mock: bool):
     title_text = Text()
     title_text.append("⚡ Jev-Judge", style="bold cyan")
-    title_text.append(" v0.1.0 — Fast CI/CD Evaluator for LLM & RAG", style="dim")
+    title_text.append(" v0.2.0 — Fast CI/CD Evaluator for LLM & RAG", style="dim")
     if is_mock:
         title_text.append(" [MOCK MODE / ZERO CONFIG]", style="bold yellow")
     else:

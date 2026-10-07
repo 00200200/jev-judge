@@ -7,7 +7,7 @@ from jev_judge.client import JevClient
 from jev_judge.models import TestCase, TestCaseResult, TestSuite, TestSuiteResult, DecisionResult
 from jev_judge.runner import TestRunner
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 class Judge:

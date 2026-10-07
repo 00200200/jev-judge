@@ -82,7 +82,7 @@ class JevClient:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "jev-judge/0.1.0",
+            "User-Agent": "jev-judge/0.2.0",
         }
 
         last_error = ""

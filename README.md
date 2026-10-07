@@ -5,7 +5,7 @@
 **Vitest for LLM outputs.**  
 Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System One).
 
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.0-blue.svg)](https://pypi.org/project/jev-judge/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.2.0-blue.svg)](https://pypi.org/project/jev-judge/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-brightgreen.svg)](https://www.python.org/)
 [![Model: TypeSafe Jev](https://img.shields.io/badge/Model-TypeSafe%20Jev-cyan.svg)](https://typesafe.ai)
