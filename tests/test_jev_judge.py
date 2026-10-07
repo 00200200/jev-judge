@@ -316,3 +316,15 @@ def test_mcp_server_tools_and_call():
     assert payload["passed"] is True
     assert "faithfulness" in payload["decisions"]
 
+
+def test_html_report_generation():
+    from jev_judge.reporters.html import generate_html_report
+    html_content = generate_html_report(_tiny_suite_results())
+    assert "<!DOCTYPE html>" in html_content
+    assert "Jev-Judge Test Report" in html_content
+    assert "grounded answer" in html_content
+    assert "hallucinated plan" in html_content
+    assert "badge-pass" in html_content
+    assert "badge-fail" in html_content
+
+

@@ -10,6 +10,8 @@ Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System O
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-brightgreen.svg)](https://www.python.org/)
 [![Model: TypeSafe Jev](https://img.shields.io/badge/Model-TypeSafe%20Jev-cyan.svg)](https://typesafe.ai)
 [![CI](https://github.com/00200200/jev-judge/actions/workflows/ci.yml/badge.svg)](https://github.com/00200200/jev-judge/actions/workflows/ci.yml)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
+[![Awesome Jev](https://img.shields.io/badge/Awesome-Jev%20Listed-orange.svg)](https://github.com/yibie/awesome-jev)
 
 <br/>
 
@@ -265,6 +267,77 @@ claude mcp add --scope user jev-judge -- uvx --from git+https://github.com/00200
 
 ---
 
+## 📊 Interactive HTML Dashboard
+
+Generate self-contained, standalone interactive test reports with dark mode, live status filters (`All`, `Passed`, `Failed`), real-time search, and detailed assertion breakdowns:
+
+```bash
+# Generate report and output to file
+jev-judge test evals/ --output-html report.html
+
+# Or stream HTML to stdout
+jev-judge test evals/ --format html > report.html
+```
+
+The HTML report is **100% self-contained** (0 external CDN requests or JavaScript frameworks required), making it safe for air-gapped CI and immediate inspection.
+
+---
+
+## 🦜 Framework Integrations
+
+### LangChain & LCEL
+
+Evaluate LangChain chains and runnable outputs in under 100ms:
+
+```python
+from jev_judge.integrations.langchain import JevLangChainEvaluator
+
+evaluator = JevLangChainEvaluator(
+    assertions={"faithfulness": "pass", "relevance": 5}
+)
+
+result = evaluator.evaluate_strings(
+    prediction="Paris is the capital of France.",
+    input="What is France's capital?",
+    context="Paris is France's capital city.",
+)
+
+print(result["passed"])    # True
+print(result["duration_ms"]) # 42.5 ms
+```
+
+Or attach the `JevJudgeCallbackHandler` to any chain:
+```python
+from jev_judge.integrations.langchain import JevJudgeCallbackHandler
+
+handler = JevJudgeCallbackHandler(assertions={"safety": "pass", "toxicity": "pass"})
+chain.invoke({"query": "Hello"}, config={"callbacks": [handler]})
+```
+
+### LlamaIndex RAG
+
+Drop-in evaluation for LlamaIndex query engines:
+
+```python
+from jev_judge.integrations.llamaindex import JevLlamaIndexEvaluator
+
+evaluator = JevLlamaIndexEvaluator(
+    assertions={"faithfulness": "pass", "relevance": 5}
+)
+
+# Evaluates directly against Response object and retrieved source nodes
+response = query_engine.query("What are the return policy terms?")
+eval_result = evaluator.evaluate(
+    query="What are the return policy terms?",
+    response=response,
+)
+
+print(eval_result.passing)   # True
+print(eval_result.feedback)  # faithfulness: PASS (prob: 0.96)
+```
+
+---
+
 ## 🤖 GitHub Action (CI/CD)
 
 Add continuous evaluation to your repository in `.github/workflows/evals.yml`:
@@ -335,6 +408,10 @@ jev-judge test evals/ --concurrency 20
 
 # Export Markdown report for CI step summary
 jev-judge test evals/ --markdown > report.md
+
+# Generate interactive HTML dashboard
+jev-judge test evals/ --output-html report.html
+jev-judge test evals/ --html > report.html
 
 # View performance benchmark table
 jev-judge benchmark

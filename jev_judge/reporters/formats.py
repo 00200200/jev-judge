@@ -3,7 +3,7 @@
 import os
 from typing import Optional
 
-OUTPUT_FORMATS = ("pretty", "markdown", "json", "junit", "github")
+OUTPUT_FORMATS = ("pretty", "markdown", "json", "junit", "github", "html")
 
 
 def resolve_output_format(

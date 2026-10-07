@@ -31,6 +31,7 @@ from jev_judge.reporters.formats import resolve_output_format, OUTPUT_FORMATS
 from jev_judge.reporters.json_report import build_json_report
 from jev_judge.reporters.junit import generate_junit_xml
 from jev_judge.reporters.github import generate_github_annotations
+from jev_judge.reporters.html import generate_html_report
 
 
 def _execute_run(
@@ -43,6 +44,7 @@ def _execute_run(
     fmt: str,
     output_md: Optional[str],
     output_json: Optional[str],
+    output_html: Optional[str] = None,
 ) -> bool:
     client = JevClient(force_mock=mock)
     if fmt == "pretty":
@@ -82,6 +84,8 @@ def _execute_run(
         annotations = generate_github_annotations(suite_results)
         if annotations:
             click.echo(annotations)
+    elif fmt == "html":
+        click.echo(generate_html_report(suite_results))
 
     # File exports
     if output_json:
@@ -95,6 +99,13 @@ def _execute_run(
             f.write(md_content)
         if fmt == "pretty":
             console.print(f"[dim]Saved Markdown report to [bold]{output_md}[/][/]")
+
+    if output_html:
+        with open(output_html, "w", encoding="utf-8") as f:
+            f.write(generate_html_report(suite_results))
+        if fmt == "pretty":
+            console.print(f"[dim]Saved HTML dashboard to [bold]{output_html}[/][/]")
+
 
     # Support GitHub Actions environment automatically
     github_step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -127,6 +138,8 @@ def _execute_run(
 @click.option("--output-json", type=click.Path(), help="Write JSON report to a file.")
 @click.option("--markdown", is_flag=True, help="Alias for --format markdown.")
 @click.option("--output-md", type=click.Path(), help="Write Markdown report to a file.")
+@click.option("--html", "is_html", is_flag=True, help="Alias for --format html.")
+@click.option("--output-html", type=click.Path(), help="Write interactive HTML dashboard to a file.")
 def test_cmd(
     path: str,
     mock: bool,
@@ -140,6 +153,8 @@ def test_cmd(
     output_json: Optional[str],
     markdown: bool,
     output_md: Optional[str],
+    is_html: bool,
+    output_html: Optional[str],
 ):
     """Run evaluation test suites across YAML/JSON/JSONL/CSV files."""
     if not os.path.exists(path):
@@ -153,6 +168,8 @@ def test_cmd(
             effective_format = "json"
         elif markdown:
             effective_format = "markdown"
+        elif is_html:
+            effective_format = "html"
 
     fmt = resolve_output_format(effective_format, markdown_alias=markdown)
 
@@ -167,6 +184,7 @@ def test_cmd(
             fmt=fmt,
             output_md=output_md,
             output_json=output_json,
+            output_html=output_html,
         )
         sys.exit(0 if success else 1)
 
