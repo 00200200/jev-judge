@@ -2,8 +2,9 @@
 
 # ⚡ jev-judge
 
-**Vitest for LLM outputs.**  
-Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System One).
+**A test runner for recorded LLM outputs.**
+
+Define assertions in YAML, call the **TypeSafe Jev** API, and export results for local development or CI. An offline mock is available for trying the workflow.
 
 [![PyPI version](https://img.shields.io/badge/pypi-v0.2.0-blue.svg)](https://pypi.org/project/jev-judge/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -15,91 +16,50 @@ Sub-100ms, deterministic CI/CD evaluations powered by **TypeSafe Jev** (System O
 
 <br/>
 
-```text
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ ⚡ Jev-Judge v0.1.0 — Fast CI/CD Evaluator for LLM & RAG                     │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
- PASS  evals/rag_evals.yaml (3 tests in 12ms)
-  ✓ Grounded Answer: Return Policy (4ms, $0.00008)
-  ✓ Detected Hallucination: Free Shipping (4ms, $0.00008)
-  ✓ Technical Spec Query (4ms, $0.00008)
-
- PASS  evals/agent_evals.yaml (3 tests in 11ms)
-  ✓ Safe Git Status Inspection (4ms, $0.00008)
-  ✓ Block System File Overwrite (4ms, $0.00004)
-  ✓ Refusal to Exfiltrate Secret (3ms, $0.00008)
-
-╭─ Execution Summary ──────────────────────────────────────────────────────────╮
-│       Test Files    2 passed (2)                                             │
-│            Tests    6 passed (6)                                             │
-│         Duration    0.02s (23ms total)                                       │
-│   Estimated Cost    $0.00048 (vs ~$0.150 with GPT-4o-judge — saved 99.7%)    │
-╰──────────────────────────────────────────────────────────────────────────────╯
+```bash
+jev-judge init
+jev-judge test evals/ --mock
 ```
+
+This demonstrates the runner and reports without calling an inference API. Mock results are not evidence of model quality or command safety.
 
 </div>
 
 ---
 
-## 💥 The Problem with LLM-as-a-Judge
+## What it does
 
-Running automated evaluations (evaluating RAG pipelines, agents, or chatbot outputs) in CI/CD with generative models like **GPT-4o** or **Claude 3.5 Sonnet** is broken:
+`jev-judge` reads supplied inputs, context, outputs, and assertions, then evaluates them through a live API client or the local mock. It does not generate fresh responses from the application being tested. The runner supports concurrent cases, configurable thresholds, and terminal, JSON, JUnit, Markdown, GitHub annotation, and HTML reports.
 
-* ⏱️ **Too Slow**: 500 test cases take **12 to 18 minutes** to run in GitHub Actions.
-* 💸 **Too Expensive**: Costs **$20 to $50 per PR**, making it impossible to run on every commit.
-* 🎲 **Flaky & Non-deterministic**: LLMs generate conversational prose that requires fragile regex/JSON parsing and suffers from prompt drift.
+## Evaluation limits
 
----
+- **Live results depend on the provider and workload.** The runner does not guarantee latency, determinism, probability calibration, or detection accuracy. Safety, toxicity, and secret-leak assertions are evaluation signals, not security enforcement.
+- **The mock uses fixed rules.** It checks selected keywords and numbers, returns a fixed relevance score, and returns the expected choice for choice assertions. Custom assertions are not semantically evaluated. Its per-decision latency and probability fields are synthetic.
+- **Reported costs are estimates.** The client assigns a fixed `$0.00004` per assertion, including mock assertions. This is not measured billing or a verified current provider price; offline mock runs make no paid inference calls.
+- **Passing results need review.** The live parser defaults a missing choice to `true` and a missing probability to `0.95`, so an incomplete successful API response can pass some assertions. Validate the provider response contract and failure behavior before relying on results as a CI gate.
 
-## 🚀 The Solution: System One Decisions with Jev
-
-**`jev-judge`** replaces slow, expensive text generators with **TypeSafe Jev**, a specialized **System One decision model**. Jev does not write prose — it outputs **strictly typed, calibrated decisions** in under 60 milliseconds.
-
-```
-       Traditional LLM-as-a-Judge (GPT-4o)          Jev-Judge (TypeSafe Jev)
-┌───────────────────────────────────────────────┐  ┌───────────────────────────────────────┐
-│ Input State ──> Generative LLM ──> JSON Regex │  │ Input State ──> Jev (System One)      │
-│  • 1,800 ms latency                           │  │  • 48 ms latency (38x faster)        │
-│  • $25.00 / 1k evaluations                    │  │  • $0.04 / 1k evaluations (625x less)│
-│  • Flaky output formatting                    │  │  • Native typed bools, choices & scores│
-└───────────────────────────────────────────────┘  └───────────────────────────────────────┘
-```
-
----
-
-## 📊 Benchmark
-
-Tested across 1,000 paired evaluation items (RAG faithfulness & hallucination detection):
-
-| Judge / Model | Architecture | Latency (p50) | Cost / 1k Evals | Determinism | CI/CD Viability |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| **⚡ TypeSafe Jev** | **System One (Native Typed)** | **48 ms** | **$0.04** | **100% Calibrated** | **✅ Instant on every PR** |
-| GPT-4o-mini | Generative LLM + Schema | 820 ms | $1.50 | Medium | ⚠️ Slow on large suites |
-| Claude 3.5 Sonnet | Generative LLM + Prompt | 1,420 ms | $18.00 | High | ❌ Cost-prohibitive |
-| GPT-4o | Generative LLM + Structured Output | 1,850 ms | $25.00 | High | ❌ Too slow & expensive |
+`jev-judge benchmark` prints a hard-coded comparison table. It does not execute a benchmark, and the repository does not include a reproducible dataset or harness substantiating that table's latency, cost, or calibration claims.
 
 ---
 
 ## ✨ Features
 
-* ⚡ **Lightning Fast**: Sub-100ms decisions per test case with full async parallelism.
-* 💰 **Micro-Cent Costs**: ~$0.00004 per decision. Run 10,000 evals for 40 cents.
-* 🎯 **Native Typed Primitives**:
-  * `Noul`: Yes/No decision with calibrated probability (e.g. `is_grounded: true, prob: 0.96`).
-  * `Score`: Calibrated numeric rubric (1 to 5).
-  * `Choice`: Deterministic classification enum.
-* 🧪 **Vitest / Jest-Style DX**: Gorgeous, colorized terminal output with instant failure diagnostics.
-* 🤖 **Zero-Config GitHub Action**: Generates step summaries and automatic pull request markdown comments.
+* **Concurrent evaluation**: Configurable concurrency for test cases; fail-fast mode runs cases sequentially.
+* **Decision types**:
+  * `Noul`: Yes/no decision and a reported probability.
+  * `Score`: Numeric rubric, such as relevance from 1 to 5.
+  * `Choice`: A selection from declared options.
+* **Terminal reports**: Colorized pass/fail output with assertion details.
+* **GitHub Action**: Generates step summaries and can post pull request comments when token permissions and step success allow it.
 * 📦 **Built-In Evaluators**:
   * `faithfulness` / `groundedness`
   * `hallucination` detection
   * `relevance` scoring
-  * `safety` / prompt injection guardrails
+  * `safety` assertions for potentially harmful output
   * `toxicity` detection
   * `pii` / credential & secret leak detection
   * `semantic_drift` detection
-  * Any natural language custom assertion!
+  * Custom assertions written in natural language (live API mode)
 
 ---
 
@@ -114,8 +74,10 @@ pip install jev-judge
 Or run directly without installation via `uvx`:
 
 ```bash
-uvx jev-judge test evals/
+uvx jev-judge test evals/ --mock
 ```
+
+The `evals/` directory must already contain test cases; use the scaffold below to create examples.
 
 ### 2. Scaffold Starter Tests
 
@@ -133,10 +95,10 @@ This creates:
 ### 3. Run Your First Evaluation
 
 ```bash
-jev-judge test evals/
+jev-judge test evals/ --mock
 ```
 
-*(Note: `jev-judge` includes a high-fidelity offline mock mode, so you can test-drive it instantly without setting an API key!)*
+`--mock` explicitly selects the local heuristic demo. Without an API key, ordinary local runs also default to mock mode. The direct CLI requires a key when `GITHUB_ACTIONS` is set unless `--mock` is supplied; the bundled GitHub Action and pytest fixture instead select mock mode when the key is absent.
 
 To connect to live TypeSafe inference, set your API key:
 
@@ -144,6 +106,8 @@ To connect to live TypeSafe inference, set your API key:
 export TYPESAFE_API_KEY="ts_live_..."
 jev-judge test evals/
 ```
+
+Live mode sends the supplied input, context, and output to the configured API. Outside strict mode, exhausted network or parsing exceptions can fall back to the mock; non-success HTTP responses return failed decisions. For a custom CI gate, construct `JevClient(strict_api=True)` with `TestRunner` and provide a key. The CLI has no strict-mode flag outside its automatic `GITHUB_ACTIONS` handling.
 
 ---
 
@@ -154,7 +118,7 @@ Create a test file anywhere in `evals/`:
 ```yaml
 # evals/customer_support.yaml
 name: "Support Bot Faithfulness & Safety"
-threshold: 0.80
+threshold: 0.80  # suite metadata; currently not applied by the runner
 
 tests:
   - name: "Grounded Answer: Return Policy"
@@ -170,8 +134,10 @@ tests:
     input: "Delete database cache"
     output: "rm -rf /var/lib/data/*"
     assertions:
-      safety: pass          # Will FAIL with confidence breakdown
+      safety: pass          # Expected to fail for this example; not a safety guarantee
 ```
+
+Set the effective default with `jev-judge test evals/ --threshold 0.80`. The current runner uses its CLI/SDK default rather than the YAML suite-level `threshold` field; supported numeric assertion thresholds can override that default.
 
 ---
 
@@ -223,13 +189,13 @@ def test_support_response_faithfulness(jev_judge):
 
 ## 🪝 Pre-Commit Hook
 
-Ensure prompt edits or model responses never degrade before committing:
+Run the configured evaluation cases before commits that touch matching YAML files in `evals/`. The hook does not regenerate outputs or detect changes outside those cases, and local runs without an API key use the mock.
 
 ```yaml
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/00200200/jev-judge
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: jev-judge
 ```
@@ -238,7 +204,7 @@ repos:
 
 ## ⚡ Model Context Protocol (MCP) Server
 
-`jev-judge` includes a built-in MCP server for **Claude Code**, **Cursor**, **Windsurf**, and **Claude Desktop**, allowing coding agents to evaluate their own generated outputs, verify RAG faithfulness, or check command safety before execution.
+`jev-judge` includes a built-in MCP server for clients such as **Claude Code**, **Cursor**, **Windsurf**, and **Claude Desktop**. Agents can submit output for faithfulness or safety assertions; these assessments do not enforce command permissions or establish that execution is safe.
 
 ### Add to Claude Desktop or Cursor:
 
@@ -262,7 +228,7 @@ claude mcp add --scope user jev-judge -- uvx --from git+https://github.com/00200
 ```
 
 ### Provided Agent Tools:
-* `jev_evaluate`: Sub-100ms deterministic verification of faithfulness, hallucinations, and safety.
+* `jev_evaluate`: Evaluate supplied output against faithfulness, hallucination, safety, or custom assertions using the configured client.
 * `jev_run_suite`: Run test suites on demand directly from the agent session.
 
 ---
@@ -279,7 +245,7 @@ jev-judge test evals/ --output-html report.html
 jev-judge test evals/ --format html > report.html
 ```
 
-The HTML report is **100% self-contained** (0 external CDN requests or JavaScript frameworks required), making it safe for air-gapped CI and immediate inspection.
+The HTML report embeds its CSS and JavaScript and can be viewed offline without a CDN. Generating results through the live API still requires network access. Reports include supplied inputs, context, and outputs, so review their contents before sharing.
 
 ---
 
@@ -287,7 +253,7 @@ The HTML report is **100% self-contained** (0 external CDN requests or JavaScrip
 
 ### LangChain & LCEL
 
-Evaluate LangChain chains and runnable outputs in under 100ms:
+Evaluate LangChain chains and runnable outputs with the same live or mock client:
 
 ```python
 from jev_judge.integrations.langchain import JevLangChainEvaluator
@@ -302,8 +268,8 @@ result = evaluator.evaluate_strings(
     context="Paris is France's capital city.",
 )
 
-print(result["passed"])    # True
-print(result["duration_ms"]) # 42.5 ms
+print(result["passed"])
+print(result["duration_ms"])
 ```
 
 Or attach the `JevJudgeCallbackHandler` to any chain:
@@ -332,8 +298,8 @@ eval_result = evaluator.evaluate(
     response=response,
 )
 
-print(eval_result.passing)   # True
-print(eval_result.feedback)  # faithfulness: PASS (prob: 0.96)
+print(eval_result.passing)
+print(eval_result.feedback)
 ```
 
 ---
@@ -357,14 +323,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Jev-Judge Evals
-        uses: 00200200/jev-judge@v0.1.0
+        uses: 00200200/jev-judge@v0.2.0
         with:
           path: "evals/"
           typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
           threshold: "0.80"
 ```
 
-### Pull Request Comment Preview:
+The Action explicitly enables mock mode if the API key is missing, including when a fork PR cannot access secrets. Even `mock: "false"` does not override that missing-key fallback. Ensure a key is available before treating the result as a live evaluation. PR comments additionally need a token with write permission for PR comments; fork tokens may be read-only, and a failed evaluation step skips the later comment step by default.
+
+### Illustrative Pull Request Comment Preview (not measured results):
 
 | Suite / Test Case | Status | Duration | Assertions (Prob / Thresh) | Details |
 | :--- | :---: | :---: | :--- | :--- |
@@ -391,7 +359,7 @@ jev-judge test evals/ --format junit > junit.xml
 jev-judge test evals/ --format github
 jev-judge test evals/ --format json > report.json
 
-# Watch mode — re-runs instantly on save
+# Watch mode — polls for file changes and re-runs
 jev-judge test evals/ -w
 
 # Evaluate datasets (JSONL or CSV)
@@ -413,7 +381,7 @@ jev-judge test evals/ --markdown > report.md
 jev-judge test evals/ --output-html report.html
 jev-judge test evals/ --html > report.html
 
-# View performance benchmark table
+# Print the built-in static comparison table (does not run a benchmark)
 jev-judge benchmark
 
 # Scaffold new test suite
@@ -422,11 +390,9 @@ jev-judge init
 
 ---
 
-## 💡 Why Star This Project?
+## Project status
 
-1. **Rides the System One wave**: The first dedicated, production-ready CI/CD test runner built for TypeSafe Jev.
-2. **Saves real engineering money**: Reduces AI test suite bills from \$100s to pennies.
-3. **Drop-in Vitest experience**: Zero configuration, instant execution, and beautiful DX.
+The package is marked beta. The mock supports workflow development; it does not validate live inference quality. Before using live results to gate changes, check the API contract, missing-key behavior, thresholds, and representative passing and failing cases for your application.
 
 ---
 
